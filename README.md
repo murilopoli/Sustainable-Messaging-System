@@ -55,7 +55,7 @@ Para cada serviço da aplicação (**ClientApp**, **TechnicianApp**, **Messaging
 
 1.  **Clonar o Repositório**:
     ```bash
-    git clone [https://github.com/murilopoli/sustainable-messaging-system](https://github.com/murilopoli/sustainable-messaging-system.git)
+    git clone https://github.com/murilopoli/Sustainable-Messaging-System.git
     cd sustainable-messaging-system
     ```
     
