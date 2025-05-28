@@ -80,22 +80,22 @@ Certifique-se de que o Barramento de Serviços Android (broker Redis) esteja em 
 * **Serviço de Ordem de Serviço**: (Este serviço gerencia o banco de dados de ordens de serviço)
     ```bash
     cd ServiceOrderService
-    python service_order_consumer.py
+    python3 service_order_consumer.py
     ```
 * **Serviço de Mensageria**: (Este serviço lida com as notificações do cliente)
     ```bash
     cd MessagingService
-    python messaging_consumer.py
+    python3 messaging_consumer.py
     ```
 * **Aplicação do Técnico**: (Simula a interface do técnico)
     ```bash
     cd TechnicianApp
-    python technician_interface.py
+    python3 technician_interface.py
     ```
 * **Aplicação do Cliente**: (Simula as ações do cliente)
     ```bash
     cd ClientApp
-    python client_interface.py
+    python3 client_interface.py
     ```
 
 ### Siga o Fluxo:
