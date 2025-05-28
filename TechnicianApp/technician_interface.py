@@ -3,7 +3,7 @@ import time # Importa a biblioteca para funções relacionadas ao tempo, como pa
 import uuid # Importa a biblioteca para gerar identificadores únicos universais (UUIDs).
 
 # Substitua pelo IP real do seu dispositivo Android executando o Redis
-REDIS_HOST = '192.168.1.7' # Parâmetro: Endereço IP do host onde o servidor Redis está em execução.
+REDIS_HOST = 'localhost' # Parâmetro: Endereço IP do host onde o servidor Redis está em execução.
 REDIS_PORT = 6379 # Parâmetro: Porta padrão do Redis.
 
 class TechnicianInterface:
