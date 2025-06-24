@@ -296,3 +296,5 @@ Press CTRL+C to quit
 127.0.0.1 - - [24/Jun/2025 12:06:19] "GET /get_messages/84a02287-b29f-49d9-8113-71883967b1b9 HTTP/1.1" 200 -
 127.0.0.1 - - [24/Jun/2025 12:07:18] "GET /get_messages/84a02287-b29f-49d9-8113-71883967b1b9 HTTP/1.1" 200 -
 127.0.0.1 - - [24/Jun/2025 12:07:18] "GET /get_messages/3583abf4-a883-4bd9-a7fd-5f43ea942fe8 HTTP/1.1" 200 -
+127.0.0.1 - - [24/Jun/2025 12:08:18] "GET /get_messages/3583abf4-a883-4bd9-a7fd-5f43ea942fe8 HTTP/1.1" 200 -
+127.0.0.1 - - [24/Jun/2025 12:08:18] "GET /get_messages/84a02287-b29f-49d9-8113-71883967b1b9 HTTP/1.1" 200 -
