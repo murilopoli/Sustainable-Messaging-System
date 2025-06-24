@@ -1,0 +1,19 @@
+Técnico tecnico_272cc88a conectado ao Redis em localhost:6379
+Ouvindo solicitações iniciais de manutenção em 'initial_maintenance_requests'...
+
+Recebida nova solicitação de manutenção do Cliente cliente_6b6e9080: 'torneira'
+Técnico iniciou novo serviço para cliente_6b6e9080 no canal maintenance_channel_cliente_6b6e9080.
+Digite o valor do orçamento para cliente_6b6e9080: Traceback (most recent call last):
+  File "/workspaces/Sustainable-Messaging-System/TechnicianApp/technician_interface.py", line 130, in <module>
+    technician.listen_for_messages() # Inicia o loop de escuta por mensagens.
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspaces/Sustainable-Messaging-System/TechnicianApp/technician_interface.py", line 35, in listen_for_messages
+    self.initiate_service(client_id, problem_description) # Chama a função para iniciar o serviço.
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspaces/Sustainable-Messaging-System/TechnicianApp/technician_interface.py", line 74, in initiate_service
+    self.emit_quote(client_id) # Chama a função para emitir o orçamento.
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspaces/Sustainable-Messaging-System/TechnicianApp/technician_interface.py", line 81, in emit_quote
+    quote_amount = input(f"Digite o valor do orçamento para {client_id}: ") # Parâmetro: Entrada do valor do orçamento.
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+EOFError: EOF when reading a line

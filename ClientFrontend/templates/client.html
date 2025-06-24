@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cliente - Sistema de Manutenção</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
+        h1, h2 { color: #333; }
+        input[type="text"], button, textarea { padding: 10px; margin-top: 10px; border-radius: 4px; border: 1px solid #ddd; width: calc(100% - 22px); }
+        button { background-color: #007bff; color: white; cursor: pointer; border: none; }
+        button:hover { background-color: #0056b3; }
+        #messages { border: 1px solid #eee; padding: 15px; margin-top: 20px; background-color: #e9e9e9; max-height: 300px; overflow-y: scroll; border-radius: 4px; }
+        .message-item { background-color: #fff; padding: 8px; margin-bottom: 5px; border-radius: 4px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Interface do Cliente</h1>
+        <p>Seu ID: <strong id="client-id">{{ client_id }}</strong></p>
+        <input type="hidden" id="session-id" value="{{ session_id }}">
+
+        <h2>Solicitar Manutenção</h2>
+        <textarea id="problem-description" rows="4" placeholder="Descreva o problema (ex: vazamento na torneira)" style="width: calc(100% - 22px); padding: 10px; margin-top: 10px; border-radius: 4px; border: 1px solid #ddd;"></textarea>
+        <button onclick="solicitMaintenance()">Solicitar Manutenção</button>
+
+        <div id="response-buttons" class="hidden">
+            <p><strong>Aguardando sua resposta para o orçamento:</strong></p>
+            <button onclick="sendResponse('aprovar')">Aprovar Orçamento</button>
+            <button onclick="sendResponse('negar')">Negar Orçamento</button>
+        </div>
+
+        <h2>Notificações</h2>
+        <div id="messages">
+            </div>
+    </div>
+
+    <script>
+        const clientId = document.getElementById('client-id').innerText;
+        const sessionId = document.getElementById('session-id').value;
+        const messagesDiv = document.getElementById('messages');
+        const responseButtonsDiv = document.getElementById('response-buttons');
+
+        function addMessage(msg) {
+            const msgItem = document.createElement('div');
+            msgItem.className = 'message-item';
+            msgItem.innerText = msg;
+            messagesDiv.prepend(msgItem); // Adiciona as mensagens mais recentes no topo
+        }
+
+        async function solicitMaintenance() {
+            const problemDescription = document.getElementById('problem-description').value;
+            if (!problemDescription) {
+                alert('Por favor, descreva o problema.');
+                return;
+            }
+
+            const response = await fetch('/solicit_maintenance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `session_id=${sessionId}&problem_description=${encodeURIComponent(problemDescription)}`
+            });
+            const data = await response.json();
+            if (data.status === 'success') {
+                document.getElementById('problem-description').value = ''; // Limpa o campo
+                addMessage(data.message);
+                // O poller vai pegar as mensagens de inicialização
+            } else {
+                addMessage("Erro: " + data.message);
+            }
+        }
+
+        async function sendResponse(type) {
+            const response = await fetch('/send_response', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `session_id=${sessionId}&response_type=${type}`
+            });
+            const data = await response.json();
+            if (data.status === 'success') {
+                addMessage(data.message);
+                // ALTERADO: A visibilidade dos botões é agora controlada pelo polling do backend
+                // responseButtonsDiv.classList.add('hidden'); // Esconde os botões após enviar a resposta
+            } else {
+                addMessage("Erro: " + data.message);
+            }
+        }
+
+        // Polling para buscar novas mensagens
+        async function fetchMessages() {
+            const response = await fetch(`/get_messages/${sessionId}`);
+            const data = await response.json();
+            data.messages.forEach(msg => {
+                addMessage(msg);
+                // ALTERADO: Lógica de exibição de botões movida para o controle de 'awaiting_response'
+                // if (msg.includes("Notificação de orçamento recebida.")) {
+                //     responseButtonsDiv.classList.remove('hidden'); // Mostra botões de resposta
+                // } else if (msg.includes("Serviço concluído!") || msg.includes("Serviço foi cancelado.") || msg.includes("CHANNEL_CLOSED")) {
+                //     responseButtonsDiv.classList.add('hidden'); // Esconde botões se o serviço terminou
+                // }
+            });
+
+            // ALTERADO: Controla a visibilidade dos botões com base no flag do backend
+            if (data.awaiting_response) {
+                responseButtonsDiv.classList.remove('hidden');
+            } else {
+                responseButtonsDiv.classList.add('hidden');
+            }
+        }
+
+        // Inicia o polling a cada 1 segundo
+        setInterval(fetchMessages, 1000);
+    </script>
+</body>
+</html>

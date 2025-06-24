@@ -8,7 +8,7 @@ REDIS_PORT = 6379 # Parâmetro: Porta padrão do Redis.
 class MessagingConsumer:
     def __init__(self):
         # Conecta-se ao servidor Redis.
-        self.r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0) # Conecta-se ao DB 0 do Redis.
+        self.r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
         self.pubsub = self.r.pubsub() # Cria uma instância de PubSub para gerenciar assinaturas.
         self.subscribed_channels = set() # Contexto: Conjunto para armazenar os nomes dos canais atualmente assinados.
         print(f"Serviço de Mensageria conectado ao Redis em {REDIS_HOST}:{REDIS_PORT}") # Informa a conexão.
@@ -24,8 +24,8 @@ class MessagingConsumer:
         # Loop principal para escutar mensagens em todos os canais assinados.
         for message in self.pubsub.listen():
             if message['type'] == 'message': # Verifica se a mensagem é do tipo 'message'.
-                data = message['data'].decode() # Decodifica os dados da mensagem.
-                channel = message['channel'].decode() # Decodifica o nome do canal de onde a mensagem veio.
+                data = message['data'] # REMOVIDO .decode()
+                channel = message['channel'] # REMOVIDO .decode()
 
                 # Se for um novo anúncio de serviço, assine o canal específico do cliente
                 if channel == "new_service_announcements" and data.startswith("NEW_SERVICE_CHANNEL_CREATED"): # Verifica se é um anúncio de novo canal.
@@ -40,9 +40,9 @@ class MessagingConsumer:
                     if data.startswith("MENSAGEM_ORCAMENTO"): # Semântica: Mensagem de orçamento.
                         parts = data.split('|')
                         _msg_type, client_id, quote_amount = parts[0], parts[1], parts[2]
-                        print(f"Serviço de Mensageria: Notificando Cliente {client_id}: 'Seu orçamento é {quote_amount}.'") # Notificação para console.
-                        # Envia notificação para o ClientApp no canal específico do cliente.
-                        self.r.publish(f"maintenance_channel_{client_id}", f"NOTIFICACAO_ORCAMENTO|{client_id}|Orçamento recebido.")
+                        print(f"Serviço de Mensageria: Notificando Cliente {client_id}: 'Seu orçamento é R$ {quote_amount}.'") # Notificação para console.
+                        # ALTERADO: Inclui o quote_amount na notificação para o cliente
+                        self.r.publish(f"maintenance_channel_{client_id}", f"NOTIFICACAO_ORCAMENTO|{client_id}|{quote_amount}")
                     elif data.startswith("MENSAGEM_APROVACAO_ORCAMENTO"): # Semântica: Mensagem de aprovação de orçamento.
                         parts = data.split('|')
                         _msg_type, client_id, _status = parts[0], parts[1], parts[2]

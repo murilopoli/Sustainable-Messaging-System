@@ -1,0 +1,6 @@
+Cliente cliente_4889dbb5 conectado ao Redis em localhost:6379
+Digite a solicitação de manutenção (ex: 'vazamento na torneira') ou 'sair' para sair: Traceback (most recent call last):
+  File "/workspaces/Sustainable-Messaging-System/ClientApp/client_interface.py", line 70, in <module>
+    problem = input("Digite a solicitação de manutenção (ex: 'vazamento na torneira') ou 'sair' para sair: ")
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+EOFError: EOF when reading a line

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Técnico - Sistema de Manutenção</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 800px; margin: auto; }
+        h1, h2 { color: #333; }
+        .service-order-card { border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 8px; background-color: #e6e6e6; }
+        .service-order-card h3 { margin-top: 0; color: #0056b3; }
+        .service-order-card p { margin: 5px 0; }
+        .service-order-card .status { font-weight: bold; color: #28a745; }
+        .service-order-card .buttons button { margin-right: 10px; padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; color: white; }
+        .service-order-card .buttons .emit-btn { background-color: #ffc107; }
+        .service-order-card .buttons .execute-btn { background-color: #17a2b8; }
+        .service-order-card .buttons .finalize-btn { background-color: #28a745; }
+        .service-order-card .buttons .cancel-btn { background-color: #dc3545; }
+        .service-order-card .buttons button:hover { opacity: 0.9; }
+        .service-order-card input[type="text"] {
+            width: 150px;
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            box-sizing: border-box;
+        }
+        .messages { border-top: 1px dashed #bbb; margin-top: 10px; padding-top: 10px; font-size: 0.9em; max-height: 150px; overflow-y: scroll; }
+        .message-item { background-color: #f0f0f0; padding: 5px; margin-bottom: 3px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Interface do Técnico</h1>
+        <p>Seu ID de Técnico: <strong id="technician-id">{{ technician_id }}</strong></p>
+
+        <h2>Ordens de Serviço Ativas</h2>
+        <div id="active-service-orders">
+            <p>Nenhuma ordem de serviço ativa no momento.</p>
+            </div>
+    </div>
+
+    <script>
+        const technicianId = document.getElementById('technician-id').innerText;
+        const activeOrdersDiv = document.getElementById('active-service-orders');
+
+        // Global object to temporarily store input values before re-rendering
+        let currentInputValues = {};
+
+        function renderServiceOrders(orders) {
+            // --- Passo 1: Salvar os valores atuais dos inputs antes de redesenhar ---
+            document.querySelectorAll('.service-order-card').forEach(card => {
+                const clientIdElement = card.querySelector('h3');
+                if (clientIdElement) {
+                    const clientIdMatch = clientIdElement.innerText.match(/cliente_([a-f0-9]+)/);
+                    if (clientIdMatch && clientIdMatch[1]) {
+                        const clientId = `cliente_${clientIdMatch[1]}`;
+                        const inputElement = card.querySelector(`#quote-amount-${clientId}`);
+                        if (inputElement) {
+                            currentInputValues[clientId] = inputElement.value;
+                        }
+                    }
+                }
+            });
+
+            // --- Passo 2: Limpar e reconstruir a interface ---
+            if (Object.keys(orders).length === 0) {
+                activeOrdersDiv.innerHTML = '<p>Nenhuma ordem de serviço ativa no momento.</p>';
+                currentInputValues = {}; // Limpa os valores salvos se não houver ordens
+                return;
+            }
+
+            activeOrdersDiv.innerHTML = ''; // Limpa o conteúdo existente
+            for (const clientId in orders) {
+                const order = orders[clientId];
+                const card = document.createElement('div');
+                card.className = 'service-order-card';
+                // Note: o conteúdo do card.innerHTML permanece o mesmo do que foi fornecido anteriormente
+                card.innerHTML = `
+                    <h3>Ordem de Serviço para Cliente: ${clientId}</h3>
+                    <p><strong>Problema:</strong> ${order.problem}</p>
+                    <p><strong>Status:</strong> <span class="status">${order.status}</span></p>
+                    ${order.status === 'quote sent' ? `<p><strong>Orçamento:</strong> R$ ${order.quote || 'Aguardando'}</p>` : ''}
+                    <div class="buttons">
+                        ${order.status === 'new' || order.status === 'new_request' ? `
+                            <input type="text" id="quote-amount-${clientId}" placeholder="Valor do Orçamento (Ex: 123.45)" oninput="formatCurrency(this)">
+                            <button class="emit-btn" onclick="emitQuote('${clientId}')">Emitir Orçamento</button>
+                        ` : ''}
+                        ${order.status === 'orcamento aprovado' ? `
+                            <button class="execute-btn" onclick="executeService('${clientId}')">Executar Serviço</button>
+                        ` : ''}
+                        ${order.status === 'executing' ? `
+                            <button class="finalize-btn" onclick="finalizeService('${clientId}')">Finalizar Serviço</button>
+                        ` : ''}
+                        ${order.status !== 'completed' && order.status !== 'cancelled' ? `
+                            <button class="cancel-btn" onclick="cancelService('${clientId}')">Cancelar Serviço</button>
+                        ` : ''}
+                    </div>
+                    <div class="messages" id="messages-${clientId}">
+                        <h4>Logs do Serviço:</h4>
+                        </div>
+                `;
+                activeOrdersDiv.appendChild(card);
+
+                // --- Passo 3: Restaurar o valor do input após criar o novo elemento ---
+                const inputElement = document.getElementById(`quote-amount-${clientId}`);
+                if (inputElement && currentInputValues[clientId] !== undefined) {
+                    inputElement.value = currentInputValues[clientId];
+                    // Opcional: Reaplicar a formatação se necessário (o evento oninput já cuida disso ao digitar)
+                    // formatCurrency(inputElement);
+                }
+
+                // Adicionar mensagens específicas da ordem de serviço
+                const serviceMessagesDiv = document.getElementById(`messages-${clientId}`);
+                order.messages.forEach(msg => {
+                    const msgItem = document.createElement('div');
+                    msgItem.className = 'message-item';
+                    msgItem.innerText = msg;
+                    serviceMessagesDiv.appendChild(msgItem);
+                });
+                serviceMessagesDiv.scrollTop = serviceMessagesDiv.scrollHeight; // Rolar para o final
+            }
+        }
+
+        // Função para formatar a entrada como moeda (R$ com 2 casas decimais)
+        function formatCurrency(input) {
+            let value = input.value;
+
+            // Remove tudo que não for dígito ou vírgula/ponto (considerando que o usuário pode usar , ou .)
+            value = value.replace(/[^0-9,.]/g, '');
+
+            // Substitui vírgula por ponto para facilitar a conversão para float
+            value = value.replace(',', '.');
+
+            // Garante que haja apenas um ponto decimal
+            const parts = value.split('.');
+            if (parts.length > 2) {
+                value = parts[0] + '.' + parts.slice(1).join('');
+            }
+
+            // Converte para float para validação e depois para string com 2 decimais
+            let floatValue = parseFloat(value);
+            if (isNaN(floatValue)) {
+                input.value = ''; // Limpa se não for um número válido
+                return;
+            }
+
+            // Para uma formatação mais amigável durante a digitação:
+            // Se houver apenas um ponto e nenhum decimal, mantém o ponto (e.g., "123.")
+            // Se houver mais de 2 decimais, trunca (o parseFloat já faria isso implicitamente se o número fosse muito longo)
+            if (value.endsWith('.') && parts.length === 2 && parts[1] === '') {
+                input.value = floatValue.toFixed(0) + '.';
+            } else if (parts.length === 2 && parts[1].length <= 2) {
+                // Se há parte decimal e tem até 2 dígitos, mantém como está para o usuário continuar digitando
+                input.value = value;
+            } else if (parts.length === 2 && parts[1].length > 2) {
+                // Se tem mais de 2 decimais, formata para 2
+                 input.value = floatValue.toFixed(2);
+            } else {
+                 input.value = floatValue.toString();
+            }
+        }
+
+        async function fetchActiveOrders() {
+            const response = await fetch('/get_active_orders');
+            const data = await response.json();
+            renderServiceOrders(data.orders);
+        }
+
+        async function emitQuote(clientId) {
+            const inputElement = document.getElementById(`quote-amount-${clientId}`);
+            let quoteAmount = inputElement.value;
+
+            // Limpeza e formatação final antes de enviar
+            quoteAmount = quoteAmount.replace(/[^0-9,.]/g, ''); // Remove caracteres indesejados
+            quoteAmount = quoteAmount.replace(',', '.'); // Substitui vírgula por ponto
+
+            let floatValue = parseFloat(quoteAmount);
+
+            if (isNaN(floatValue) || floatValue < 0) {
+                alert('Por favor, insira um valor numérico válido e positivo para o orçamento.');
+                inputElement.value = '';
+                return;
+            }
+
+            // Formata para 2 casas decimais para envio
+            quoteAmount = floatValue.toFixed(2);
+
+            await fetch('/emit_quote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `client_id=${clientId}&quote_amount=${quoteAmount}`
+            });
+            fetchActiveOrders(); // Atualiza a UI
+        }
+
+        async function executeService(clientId) {
+            await fetch('/execute_service', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `client_id=${clientId}`
+            });
+            fetchActiveOrders(); // Atualiza a UI
+        }
+
+        async function finalizeService(clientId) {
+            await fetch('/finalize_service', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `client_id=${clientId}`
+            });
+            fetchActiveOrders(); // Atualiza a UI
+        }
+
+        async function cancelService(clientId) {
+            if (confirm(`Tem certeza que deseja cancelar o serviço para ${clientId}?`)) {
+                await fetch('/cancel_service', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `client_id=${clientId}`
+                });
+                fetchActiveOrders(); // Atualiza a UI
+            }
+        }
+
+        // Inicia o polling para buscar ordens ativas a cada 2 segundos
+        setInterval(fetchActiveOrders, 2000);
+        fetchActiveOrders(); // Chama uma vez ao carregar a página
+    </script>
+</body>
+</html>

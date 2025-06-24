@@ -3,78 +3,72 @@ import time # Importa a biblioteca para funções relacionadas ao tempo, como pa
 import uuid # Importa a biblioteca para gerar identificadores únicos universais (UUIDs).
 
 # Substitua pelo IP real do seu dispositivo Android executando o Redis
-REDIS_HOST = '192.168.1.7' # Parâmetro: Endereço IP do host onde o servidor Redis está em execução.
+REDIS_HOST = 'localhost' # Parâmetro: Endereço IP do host onde o servidor Redis está em execução.
 REDIS_PORT = 6379 # Parâmetro: Porta padrão do Redis.
 
 class ClientInterface:
     def __init__(self):
         # Conecta-se ao servidor Redis.
-        # self.r é a instância do cliente Redis que permite publicar e assinar mensagens.
-        self.r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0) # db=0 seleciona o banco de dados padrão do Redis.
-        # Gera um ID único para este cliente usando UUID (ex: 'cliente_abcdef12').
-        self.client_id = f"cliente_{uuid.uuid4().hex[:8]}" # Semântica: Identificação única para cada instância do cliente.
-        self.active_channel = None # Contexto: Armazena o nome do canal Redis específico para a solicitação de manutenção atual do cliente. Inicialmente nulo.
-        print(f"Cliente {self.client_id} conectado ao Redis em {REDIS_HOST}:{REDIS_PORT}") # Informa a conexão.
+        self.r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True) # decode_responses=True
+        self.client_id = f"cliente_{uuid.uuid4().hex[:8]}"
+        self.active_channel = None
+        print(f"Cliente {self.client_id} conectado ao Redis em {REDIS_HOST}:{REDIS_PORT}")
 
     def solicit_maintenance(self, problem_description):
-        # Um cliente solicita manutenção, esta mensagem vai para o TechnicianApp.
-        # Não criamos um canal específico ainda, pois o técnico o iniciará.
-        # Para simplificar, usamos um canal geral para o contato inicial.
-        initial_channel = "initial_maintenance_requests" # Contexto: Canal genérico para a solicitação inicial.
-        # Constrói a mensagem com tipo, ID do cliente e descrição do problema.
-        message = f"SOLICITAR_MANUTENCAO|{self.client_id}|{problem_description}" # Semântica: Formato da mensagem para fácil parsing.
-        self.r.publish(initial_channel, message) # Ação: Publica a mensagem no canal inicial.
-        print(f"\nCliente {self.client_id}: Solicitou manutenção: '{problem_description}'") # Confirmação da solicitação.
-        print(f"Aguardando orçamento ou notificação do técnico...") # Informa que o cliente está aguardando.
+        initial_channel = "initial_maintenance_requests"
+        message = f"SOLICITAR_MANUTENCAO|{self.client_id}|{problem_description}"
+        self.r.publish(initial_channel, message)
+        print(f"\nCliente {self.client_id}: Solicitou manutenção: '{problem_description}'")
+        print(f"Aguardando orçamento ou notificação do técnico...")
 
-        # Agora, assine um canal específico para este cliente para receber atualizações
-        # O nome do canal é dinâmico, baseado no ID do cliente, para comunicação ponto a ponto.
-        self.active_channel = f"maintenance_channel_{self.client_id}" # Semântica: Canal exclusivo para esta interação cliente-serviço.
-        pubsub = self.r.pubsub() # Cria uma instância de PubSub para assinar canais.
-        pubsub.subscribe(self.active_channel) # Assina o canal específico do cliente.
-        print(f"Ouvindo atualizações no canal: {self.active_channel}") # Informa o canal que está sendo ouvido.
+        self.active_channel = f"maintenance_channel_{self.client_id}"
+        pubsub = self.r.pubsub()
+        pubsub.subscribe(self.active_channel)
+        print(f"Ouvindo atualizações no canal: {self.active_channel}")
 
-        for message in pubsub.listen(): # Loop infinito para escutar mensagens no canal assinado.
-            if message['type'] == 'message': # Verifica se a mensagem recebida é do tipo 'message' (não 'subscribe', 'unsubscribe' etc.).
-                data = message['data'].decode() # Decodifica os dados da mensagem (que vêm em bytes) para string.
-                print(f"Cliente {self.client_id} Recebido: {data}") # Exibe a mensagem recebida.
+        for message in pubsub.listen():
+            if message['type'] == 'message':
+                data = message['data'] # REMOVIDO .decode()
+                print(f"Cliente {self.client_id} Recebido: {data}")
 
-                if "NOTIFICACAO_ORCAMENTO" in data: # Semântica: Verifica se a mensagem é uma notificação de orçamento.
-                    print("Notificação de orçamento recebida. Aprovar ou recusar?") # Solicita a ação do usuário.
-                    response = input("Digite 'aprovar' para aprovar, 'negar' para recusar: ").lower() # Parâmetro: Entrada do usuário para aprovação/recusa.
-                    if response == 'aprovar': # Condicional: Se o cliente aprovar.
-                        # Cliente aprova, envia mensagem de volta ao técnico via o mesmo canal
-                        # Publica a aprovação no canal ativo.
+                # ALTERADO: Extrai o valor do orçamento da mensagem NOTIFICACAO_ORCAMENTO
+                if data.startswith("NOTIFICACAO_ORCAMENTO"):
+                    parts = data.split('|')
+                    if len(parts) > 2: # Espera "NOTIFICACAO_ORCAMENTO|client_id|quote_amount"
+                        quote_amount = parts[2]
+                        print(f"Notificação de orçamento recebida: R$ {quote_amount}. Aprovar ou recusar?")
+                    else:
+                        print("Notificação de orçamento recebida. Aprovar ou recusar?") # Fallback
+
+                    response = input("Digite 'aprovar' para aprovar, 'negar' para recusar: ").lower()
+                    if response == 'aprovar':
                         self.r.publish(self.active_channel, f"APROVAR_ORCAMENTO|{self.client_id}|Orçamento aprovado.")
-                        print("Aprovação enviada ao técnico.") # Confirmação.
-                    else: # Condicional: Se o cliente recusar.
-                        # Publica a recusa no canal ativo.
+                        print("Aprovação enviada ao técnico.")
+                    else:
                         self.r.publish(self.active_channel, f"NEGAR_ORCAMENTO|{self.client_id}|Orçamento negado.")
-                        print("Recusa enviada ao técnico.") # Confirmação.
-                elif "NOTIFICACAO_CONCLUSAO" in data: # Semântica: Verifica se a mensagem é uma notificação de conclusão.
-                    print("Serviço concluído! Obrigado!") # Mensagem de agradecimento.
-                    # Sinaliza para parar de ouvir esta solicitação de serviço
-                    pubsub.unsubscribe(self.active_channel) # Ação: Desassina o canal ativo.
-                    self.active_channel = None # Reseta o canal ativo.
-                    break # Sai do loop de escuta, pois o serviço foi concluído.
-                elif "SERVICO_CANCELADO" in data: # Semântica: Verifica se a mensagem indica que o serviço foi cancelado.
-                    print("Serviço foi cancelado.") # Informa sobre o cancelamento.
-                    pubsub.unsubscribe(self.active_channel) # Desassina o canal ativo.
-                    self.active_channel = None # Reseta o canal ativo.
-                    break # Sai do loop de escuta.
-                elif "CHANNEL_CLOSED" in data: # Semântica: Verifica se a mensagem indica que o canal foi explicitamente fechado pelo sistema (geralmente pelo SO Service).
-                    print(f"Canal {self.active_channel} explicitamente fechado pelo sistema.") # Informa sobre o fechamento do canal.
-                    pubsub.unsubscribe(self.active_channel) # Desassina o canal ativo.
-                    self.active_channel = None # Reseta o canal ativo.
-                    break # Sai do loop de escuta.
-            time.sleep(0.1) # Pausa curta para evitar consumo excessivo de CPU.
+                        print("Recusa enviada ao técnico.")
+                elif "NOTIFICACAO_CONCLUSAO" in data:
+                    print("Serviço concluído! Obrigado!")
+                    pubsub.unsubscribe(self.active_channel)
+                    self.active_channel = None
+                    break
+                elif "SERVICO_CANCELADO" in data:
+                    print("Serviço foi cancelado.")
+                    pubsub.unsubscribe(self.active_channel)
+                    self.active_channel = None
+                    break
+                elif "CHANNEL_CLOSED" in data:
+                    print(f"Canal {self.active_channel} explicitamente fechado pelo sistema.")
+                    pubsub.unsubscribe(self.active_channel)
+                    self.active_channel = None
+                    break
+            time.sleep(0.1)
 
-# Bloco executado quando o script é o principal.
 if __name__ == "__main__":
-    client = ClientInterface() # Cria uma instância da interface do cliente.
-    while True: # Loop principal para permitir múltiplas solicitações.
-        problem = input("Digite a solicitação de manutenção (ex: 'vazamento na torneira') ou 'sair' para sair: ") # Solicita a entrada do usuário.
-        if problem.lower() == 'sair': # Condicional: Verifica se o usuário quer sair.
-            break # Sai do loop principal.
-        client.solicit_maintenance(problem) # Chama o método para solicitar manutenção.
-        print("\n--- Nova solicitação de manutenção ---") # Separador para novas solicitações.
+    client = ClientInterface()
+    while True:
+        problem = input("Digite a solicitação de manutenção (ex: 'vazamento na torneira') ou 'sair' para sair: ")
+        if problem.lower() == 'sair':
+            break
+        client.solicit_maintenance(problem)
+        print("\n--- Nova solicitação de manutenção ---")
