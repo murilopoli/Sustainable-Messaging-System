@@ -72,7 +72,7 @@ Para configurar e executar o sistema, você precisará dos seguintes itens:
 
 O barramento de serviços (Redis) será executado no seu dispositivo Android via UserLAnd.
 
-1.  **Instalar UserLAnd**: Baixe e instale o UserLAnd em seu dispositivo Android. Abra-o e configure uma distribuição **Ubuntu**.
+1.  **Instalar UserLAnd**: Baixe e instale o UserLAnd em seu dispositivo Android. Abra-o e configure uma distribuição **Ubuntu`.
 2.  **Acessar Terminal Ubuntu**: Uma vez que o Ubuntu estiver configurado no UserLAnd, abra seu terminal.
 3.  **Atualizar e Fazer Upgrade**:
     ```bash
@@ -132,111 +132,24 @@ Certifique-se de que o Barramento de Serviços Android (broker Redis) esteja em 
 
 ### 4.1. Usando o Script de Inicialização Automatizada
 
-Para simplificar a execução, crie um arquivo chamado `start_all_services.sh` na **raiz** do seu projeto (`Sustainable-Messaging-System/`).
+Para simplificar a execução de todos os serviços e frontends, um script shell chamado `start_all_services.sh` já está localizado na **raiz** do seu projeto (`Sustainable-Messaging-System/`). Este script automatiza as seguintes tarefas:
 
-**Conteúdo de `start_all_services.sh`:**
+* Solicita o IP do host Redis ao usuário.
+* Configura automaticamente o `REDIS_HOST` em todos os 6 arquivos Python de serviço e frontend.
+* Inicia todos os serviços de backend e frontends Flask em segundo plano, redirecionando suas saídas para arquivos de log individuais dentro de subpastas `logs/` de cada serviço.
 
-```bash
-#!/bin/bash
+**Passos para Executar o Script:**
 
-# Este script inicia todos os serviços do Sustainable Messaging System.
-# Ele também configura o REDIS_HOST em todos os arquivos Python automaticamente.
-
-echo "--- Iniciando todos os serviços do Sustainable Messaging System ---"
-echo "------------------------------------------------------------------"
-
-# --- Configurar REDIS_HOST nos arquivos Python ---
-
-read -p "Digite o IP do host Redis (ex: 192.168.1.100 ou localhost se estiver na mesma máquina): " REDIS_HOST_INPUT
-
-# Lista de arquivos Python que precisam ter o REDIS_HOST configurado
-PYTHON_FILES=(
-    "ClientApp/client_interface.py"
-    "TechnicianApp/technician_interface.py"
-    "MessagingService/messaging_consumer.py"
-    "ServiceOrderService/service_order_consumer.py"
-    "ClientFrontend/app.py"
-    "TechnicianFrontend/app.py"
-)
-
-# Obtém o diretório deste script e muda para ele
-SCRIPT_DIR="<span class="math-inline">\( cd "</span>( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-cd "$SCRIPT_DIR"
-
-echo ""
-echo "Configurando REDIS_HOST para '$REDIS_HOST_INPUT' em todos os arquivos Python..."
-
-# Detecta o sistema operacional para compatibilidade com 'sed'
-SED_INPLACE_OPT=""
-if [[ "<span class="math-inline">OSTYPE" \=\= "darwin"\* \]\]; then
-\# macOS 'sed' requires an argument for \-i \(e\.g\., \-i ''\)
-SED\_INPLACE\_OPT\="''"
-fi
-for file in "</span>{PYTHON_FILES[@]}"; do
-    FILE_PATH="$SCRIPT_DIR/$file"
-    if [ -f "$FILE_PATH" ]; then
-        # Usa 'eval' para lidar corretamente com a opção -i do sed em diferentes OS
-        # O delimitador '|' é usado em 'sed' porque o IP pode conter '.'
-        eval "sed -i $SED_INPLACE_OPT \"s|REDIS_HOST = '.*'|REDIS_HOST = '$REDIS_HOST_INPUT'|g\" \"$FILE_PATH\""
-        if [ $? -eq 0 ]; then
-            echo " - '$file': REDIS_HOST configurado com sucesso."
-        else
-            echo " - ERRO: Falha ao configurar REDIS_HOST em '$file'."
-        fi
-    else
-        echo " - AVISO: Arquivo não encontrado: '$file'. Pulando a configuração."
-    fi
-done
-
-echo "Configuração de REDIS_HOST concluída."
-
-# --- Relembre o usuário sobre o Redis no Android ---
-echo ""
-echo "--- Lembrete Importante: ---"
-echo "Certifique-se de que o servidor Redis esteja rodando no seu dispositivo Android!"
-echo "------------------------------"
-
-# Função para iniciar um serviço em segundo plano
-start_service() {
-    local dir=$1
-    local script=$2
-    local name=$3
-    echo "Iniciando $name..."
-    mkdir -p "$dir/logs" # Garante que a pasta de logs existe
-    nohup python3 "$dir/$script" > "$dir/logs/$name.log" 2>&1 &
-    echo "[$name] Iniciado. Saída redirecionada para $dir/logs/$name.log (PID $!)"
-    sleep 2 # Dá um tempo para o serviço inicializar
-}
-
-# --- Iniciar serviços de Backend ---
-echo ""
-echo "Iniciando serviços de Backend..."
-start_service "ServiceOrderService" "service_order_consumer.py" "ServiceOrderService"
-start_service "MessagingService" "messaging_consumer.py" "MessagingService"
-start_service "TechnicianApp" "technician_interface.py" "TechnicianApp"
-start_service "ClientApp" "client_interface.py" "ClientApp"
-
-# --- Iniciar Frontends Flask ---
-echo ""
-echo "Iniciando Frontends Flask..."
-start_service "TechnicianFrontend" "app.py" "TechnicianFrontend"
-start_service "ClientFrontend" "app.py" "ClientFrontend"
-
-echo ""
-echo "------------------------------------------------------------------"
-echo "Todos os serviços foram iniciados em segundo plano."
-echo "Para verificar os logs de cada serviço, consulte os arquivos em suas respectivas pastas 'logs/'."
-echo "Exemplo: tail -f Sustainable-Messaging-System-main/ServiceOrderService/logs/ServiceOrderService.log"
-echo ""
-echo "Acesse as interfaces no seu navegador:"
-echo "Interface do Cliente: http://localhost:5000"
-echo "Interface do Técnico: http://localhost:5001"
-echo "------------------------------------------------------------------"
-echo "Pressione Ctrl+C para sair deste script, mas os serviços continuarão rodando."
-echo "Para parar todos os serviços, use 'killall python3' (cuidado, isso mata todos os processos python)."
-echo "Ou identifique os PIDs usando 'ps aux | grep python3' e use 'kill <PID>'."
-echo "Aguarde alguns segundos para que todos os serviços se estabilizem."
-echo ""
+1.  **Dê permissão de execução (se ainda não o fez):** Abra seu terminal, navegue até a pasta raiz do projeto e execute:
+    ```bash
+    chmod +x start_all_services.sh
+    ```
+2.  **Execute o script:**
+    ```bash
+    ./start_all_services.sh
+    ```
+3.  O script pedirá para você **digitar o IP do host Redis**. Insira o IP do seu dispositivo Android (obtido no Passo 3.2.7). Se o Redis estiver rodando localmente na sua máquina para testes (não recomendado para o fluxo completo com Android), você pode digitar `localhost`.
+4.  Acompanhe a saída do script. Ele informará se a configuração de IP foi bem-sucedida para cada arquivo e se os serviços estão sendo iniciados. Eles rodarão em segundo plano.
 
 ### 4.2. Acessando as Interfaces e Testando o Fluxo
 
@@ -260,7 +173,7 @@ echo ""
 3.  **De volta ao Cliente (`http://localhost:5000`):**
     * Uma nova notificação aparecerá, informando o valor do orçamento (ex: "Notificação de orçamento recebida: R$ 150.75. Aprovar ou recusar?").
     * Os botões "Aprovar Orçamento" e "Negar Orçamento" devem aparecer.
-    * Clique em "Aprovar Orçamento`.
+    * Clique em "Aprovar Orçamento".
 
 4.  **De volta ao Técnico (`http://localhost:5001`):**
     * O status da OS será `orcamento aprovado`.
